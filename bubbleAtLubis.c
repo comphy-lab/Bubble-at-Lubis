@@ -30,13 +30,19 @@ double Oho, Ohw, Oha, hf, tmax, Ldomain, delta;
 int MAXlevel;
 
 int main(int argc, char const *argv[]) {
+
+  if (argc < 9) {
+    fprintf(ferr, "Need %d more argument(s): Oho, Ohw, Oha, hf, tmax, Ldomain, delta, MAXlevel\n", 9-argc);
+    return 1;
+  }
+  
   Oho = atof(argv[1]);
   Ohw = atof(argv[2]);
   Oha = atof(argv[3]);
   hf = atof(argv[4]);
   tmax = atof(argv[5]);
   Ldomain = atof(argv[6]);
-  delat = atof(argv[7]);
+  delta = atof(argv[7]);
   MAXlevel = atoi(argv[8]);
 
   L0=Ldomain;
@@ -69,9 +75,9 @@ int main(int argc, char const *argv[]) {
 
 event init(t = 0){
   if(!restore (file = "dump")){
-    char filename1[60];
+    char filename1[60], filename2[60];
     /**
-    Initialization for f1
+    Initialization for f1 and f2
     */
     sprintf(filename1, "f1_init-%3.2f.dat", delta);
     sprintf(filename2, "f2_init-%3.2f.dat", delta);
@@ -109,6 +115,8 @@ event init(t = 0){
     fractions (phi1, f1);
     fractions (phi2, f2);
   }
+  dump (file = "dump");
+  // return 1;
 }
 
 scalar KAPPA1[], KAPPA2[], omega[];
