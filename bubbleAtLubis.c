@@ -12,11 +12,11 @@
 #include "three-phase.h"
 #include "tension.h"
 #include "distance.h"
-// #include "adapt_wavelet_limited.h"
+#include "adapt_wavelet_limited_v2.h"
 
 #define MINlevel 3                                              // maximum level
 
-#define tsnap (1e-2)
+#define tsnap (5e-4)
 
 // Error tolerances
 #define fErr (1e-3)                                 // error tolerance in VOF
@@ -25,6 +25,10 @@
 #define OmegaErr (1e-2)                            // error tolerances in velocity
 
 // boundary conditions
+f1[left] = dirichlet(1.0);
+f2[left] = dirichlet(0.0);
+u.t[left] = dirichlet(0.0);
+
 
 double Oho, Ohw, Oha, hf, tmax, Ldomain, delta;
 int MAXlevel;
@@ -64,14 +68,15 @@ int main(int argc, char const *argv[]) {
   run();
 }
 
-// int refRegion(double x, double y, double z){
-//   return (x < -1 ? 2:
-//           x > 1.5 ? 2:
-//           y > 2.0 ? 2:
-//           sq(x)+sq(y)<sq(z0) ? MAXlevel+1:
-//           MAXlevel
-//         );
-// }
+int refRegion(double x, double y, double z){
+
+  return (x < 1.1*hf && y < 1.0 ? MAXlevel:
+          x < 5*hf && y < 1.5 ? MAXlevel-1:
+          x < 1.0 && y < 2.0 ? MAXlevel-2:
+          x < 3.0 && y < 2.0 ? MAXlevel-3:
+          MAXlevel-4
+        );
+}
 
 event init(t = 0){
   if(!restore (file = "dump")){
@@ -101,7 +106,7 @@ event init(t = 0){
     scalar d1[], d2[];
     distance (d1, InitialShape1);
     distance (d2, InitialShape2);
-    while (adapt_wavelet ((scalar *){f1, f2, d1, d2}, (double[]){1e-8, 1e-8, 1e-8, 1e-8}, MAXlevel).nf);
+    while (adapt_wavelet_limited ((scalar *){f1, f2, d1, d2}, (double[]){1e-8, 1e-8, 1e-8, 1e-8}, refRegion).nf);
     /**
     The distance function is defined at the center of each cell, we have
     to calculate the value of this function at each vertex. */
@@ -127,9 +132,9 @@ event adapt(i++) {
   foreach(){
     omega[] *= f1[]*(1-f2[]);
   }
-  adapt_wavelet ((scalar *){f1, f2, u.x, u.y, KAPPA1, KAPPA2, omega},
+  adapt_wavelet_limited ((scalar *){f1, f2, u.x, u.y, KAPPA1, KAPPA2, omega},
     (double[]){fErr, fErr, VelErr, VelErr, KErr, KErr, OmegaErr},
-    MAXlevel, MINlevel);
+    refRegion, MINlevel);
 }
 
 // Outputs

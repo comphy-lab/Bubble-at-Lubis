@@ -14,27 +14,6 @@ import sys
 
 matplotlib.rcParams['font.family'] = 'serif'
 matplotlib.rcParams['text.usetex'] = True
-matplotlib.rcParams['text.latex.preamble'] = [r'']
-
-def readingXc(filename):
-    fp = open(filename, "r")
-    temp1 = fp.read()
-    temp2 = temp1.split("\n")
-    tTemp, XcTemp, YcTemp, VcTemp = [], [], [], []
-    for n1 in range(len(temp2)):
-        temp3 = temp2[n1].split(" ")
-        if temp3 == ['']:
-            pass
-        else:
-            tTemp.append(float(temp3[0]))
-            XcTemp.append(float(temp3[1]))
-            YcTemp.append(float(temp3[2]))
-            VcTemp.append(float(temp3[3]))
-    t = np.array(tTemp)
-    Xc = np.array(XcTemp)
-    Yc = np.array(YcTemp)
-    Vc = np.array(VcTemp)
-    return t, Xc, Yc, Vc
 
 def gettingFacets(filename, Tracer):
     if Tracer == 1:
@@ -64,7 +43,7 @@ def gettingFacets(filename, Tracer):
     return segs
 
 def gettingfield(filename):
-    exe = ["./getData", filename, str(zmin), str(0), str(zmax), str(rmax), str(nr), str(Ohf), str(Ohs), str(MUsf)]
+    exe = ["./getData", filename, str(zmin), str(0), str(zmax), str(rmax), str(nr), str(Oho), str(Ohw), str(Oha)]
     p = sp.Popen(exe, stdout=sp.PIPE, stderr=sp.PIPE)
     stdout, stderr = p.communicate()
     temp1 = stderr.decode("utf-8")
@@ -96,43 +75,33 @@ def gettingfield(filename):
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-ci, Ldomain = int(sys.argv[1]), float(sys.argv[2])
-GridsPerh = int(sys.argv[3])
-nr = int(GridsPerh*Ldomain)
-Ohf, Murs = float(sys.argv[4]), float(sys.argv[5])
-Ohs = Murs*Ohf
-MUsf = 0.01
+nr = 750
+hf, Ldomain = float(sys.argv[1]), float(sys.argv[2])
+Oho, Ohw, Oha = float(sys.argv[3]), float(sys.argv[4]), 1e-5 #float(sys.argv[5])
 
-Draft, tDraft, vT, tmax = int(sys.argv[6]), float(sys.argv[7]), float(sys.argv[8]), float(sys.argv[9])
-
-rmin, rmax, zmin, zmax = [-Ldomain/2, Ldomain/2, -Ldomain/10, Ldomain/10]
+rmin, rmax, zmin, zmax = [-0.75*Ldomain, 0.75*Ldomain, -hf*1.001, Ldomain-hf*1.001]
 lw = 4
 
-folder = 'VideoTC'  # output folder
-tw, Zc, Rc, Vc = readingXc("%d_XmYmVm.dat" % ci);
+folder = 'Video'  # output folder
 
 if not os.path.isdir(folder):
     os.makedirs(folder)
-for ti in range(len(tw)):
-    t, Zo, Ro, Vo = tw[ti], Zc[ti], Rc[ti], vT
+
+nGFS=10000
+for ti in range(nGFS):
+    t = ti*(5.0e-4)
+    print("Time is %f" % t)
+
     place = "intermediate/snapshot-%5.4f" % t
-    name = "%s/%8.8d.png" %(folder, int(t*1000))
-    if t > tmax:
-        break
+    name = "%s/%8.8d.png" %(folder, int(t*100000))
 
-    if Draft:
-        ti = len(tw)-1
-        t, Zo, Ro, Vo = tDraft, Zc[ti], Rc[ti], vT
-        place = "intermediate/snapshot-%5.4f" % t
-        name = "%8.8d.pdf" % (int(t*1000))
-
-    print("Doing t = %f at (R,Z) = (%f, %f)" % (t, Ro, Zo))
     if not os.path.exists(place):
         print("%s File not found!" % place)
     else:
-        if os.path.exists(name) and not Draft:
+        if os.path.exists(name):
             print("%s Image present!" % name)
         else:
+
             segs1 = gettingFacets(place, 1)
             segs2 = gettingFacets(place, 2)
             if (len(segs1) == 0):
@@ -154,9 +123,9 @@ for ti in range(len(tw)):
 
 
                 ## D
-                cntrl1 = ax.imshow(D2, cmap="hot_r", interpolation='None', origin='lower', extent=[rminp, rmaxp, zminp, zmaxp], vmax = 0.0, vmin = -3.0)
+                cntrl1 = ax.imshow(D2, cmap="hot_r", interpolation='None', origin='lower', extent=[rminp, rmaxp, zminp, zmaxp], vmax = 2.0, vmin = -3.0)
                 ## V
-                cntrl2 = ax.imshow(vel/Vo, interpolation='None', cmap="Blues", origin='lower', extent=[-rminp, -rmaxp, zminp, zmaxp], vmax = 1.0, vmin = 0.)
+                cntrl2 = ax.imshow(vel, interpolation='None', cmap="Blues", origin='lower', extent=[-rminp, -rmaxp, zminp, zmaxp], vmax = 4.0, vmin = 0.)
 
                 ax.plot([0, 0], [zmin, zmax],'-.',color='grey',linewidth=lw)
                 # ax.plot([rmin, rmax], [0, 0],'-',color='grey',linewidth=lw/2)
@@ -168,22 +137,20 @@ for ti in range(len(tw)):
                 ax.set_aspect('equal')
                 ax.set_xlim(rmin, rmax)
                 ax.set_ylim(zmin, zmax)
-                ax.set_title('$t/t_\gamma$ = %4.3f' % t, fontsize=TickLabel)
+                ax.set_title('$t/t_\gamma$ = %5.4f' % t, fontsize=TickLabel)
 
                 l, b, w, h = ax.get_position().bounds
                 cb1 = fig.add_axes([l+0.55*w, b-0.05, 0.40*w, 0.03])
                 c1 = plt.colorbar(cntrl1,cax=cb1,orientation='horizontal')
-                c1.set_label('$\log_{10}\left(\dot{\epsilon}_\eta\\right)$',fontsize=TickLabel, labelpad=5)
+                c1.set_label('$\log_{10}\left(\\varepsilon_\eta\\right)$',fontsize=TickLabel, labelpad=5)
                 c1.ax.tick_params(labelsize=TickLabel)
                 c1.ax.xaxis.set_major_formatter(StrMethodFormatter('{x:,.1f}'))
                 cb2 = fig.add_axes([l+0.05*w, b-0.05, 0.40*w, 0.03])
                 c2 = plt.colorbar(cntrl2,cax=cb2,orientation='horizontal')
                 c2.ax.tick_params(labelsize=TickLabel)
-                c2.set_label('$V/V_f$',fontsize=TickLabel)
+                c2.set_label('$\|v_i\|/V_\gamma$',fontsize=TickLabel)
                 c2.ax.xaxis.set_major_formatter(StrMethodFormatter('{x:,.2f}'))
                 ax.axis('off')
                 # plt.show()
                 plt.savefig(name, bbox_inches="tight")
                 plt.close()
-                if Draft:
-                    break

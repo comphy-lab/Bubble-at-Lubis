@@ -9,7 +9,7 @@
 
 char filename[80];
 int nx, ny, len;
-double xmin, ymin, xmax, ymax, Deltax, Deltay, Ohf, Ohp, Mu3s, Ohs;
+double xmin, ymin, xmax, ymax, Deltax, Deltay, Oho, Ohw, Oha;
 scalar f1[], f2[], D2c[], vel[];
 scalar * list = NULL;
 
@@ -19,9 +19,8 @@ int main(int a, char const *arguments[])
   xmin = atof(arguments[2]); ymin = atof(arguments[3]);
   xmax = atof(arguments[4]); ymax = atof(arguments[5]);
   ny = atoi(arguments[6]);
-  Ohf = atof(arguments[7]); Ohp = atof(arguments[8]);
-  Mu3s = atof(arguments[9]);
-  Ohs = Mu3s*Ohf;
+  Oho = atof(arguments[7]); Ohw = atof(arguments[8]);
+  Oha = atof(arguments[9]);
 
   list = list_add (list, D2c);
   list = list_add (list, vel);
@@ -42,7 +41,7 @@ int main(int a, char const *arguments[])
     double D33 = (u.x[1,0] - u.x[-1,0])/(2*Delta);
     double D13 = 0.5*( (u.y[1,0] - u.y[-1,0] + u.x[0,1] - u.x[0,-1])/(2*Delta) );
     double D2 = sq(D11)+sq(D22)+sq(D33)+2.0*sq(D13);
-    D2c[] = 2*(clamp(f1[]*(1-f2[]), 0., 1.) * Ohp + clamp(f1[]*f2[], 0., 1.) * Ohf + clamp((1-f1[]), 0., 1.) * Ohs)*D2;
+    D2c[] = 2*(clamp(f1[]*(1-f2[]), 0., 1.) * Oho + clamp(f1[]*f2[], 0., 1.) * Oha + clamp((1-f1[]), 0., 1.) * Ohw)*D2;
 
     if (D2c[] > 0.){
       D2c[] = log(D2c[])/log(10);

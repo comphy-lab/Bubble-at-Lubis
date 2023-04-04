@@ -15,7 +15,7 @@ from matplotlib.collections import LineCollection
 import sys
 
 matplotlib.rcParams['text.usetex'] = True
-matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
+matplotlib.rcParams['font.family'] = 'serif'
 
 def gettingFacets(filename, Tracer):
     if Tracer == 1:
@@ -40,20 +40,12 @@ def gettingFacets(filename, Tracer):
                     r1, z1 = np.array([float(temp3[1]), float(temp3[0])])
                     r2, z2 = np.array([float(temp4[1]), float(temp4[0])])
                     segs.append(((r1, z1),(r2,z2)))
+                    segs.append(((-r1, z1),(-r2,z2)))
                     skip = True
     return segs
 
-def gettingTriplePoint(filename):
-    exe = ["./getX0Y0V0", filename, name1, rOld, DistCutoff]
-    p = sp.Popen(exe, stdout=sp.PIPE, stderr=sp.PIPE)
-    stdout, stderr = p.communicate()
-    temp1 = stderr.decode("utf-8")
-    temp2 = temp1.split("\n")
-    temp3 = temp2[0].split(" ")
-    return float(temp3[0]), float(temp3[1]), float(temp3[2]), float(temp3[3])
-
-def gettingXmYmVm(filename):
-    exe = ["./getXmYmVm", filename, name2]
+def gettingTriplePoint(filename, name1, DistCutoff):
+    exe = ["./getX0Y0V0", filename, name1, str(DistCutoff)]
     p = sp.Popen(exe, stdout=sp.PIPE, stderr=sp.PIPE)
     stdout, stderr = p.communicate()
     temp1 = stderr.decode("utf-8")
@@ -66,26 +58,26 @@ def gettingXmYmVm(filename):
 
 nGFS = 10000
 ci = int(sys.argv[1])
-Ldomain = int(sys.argv[2])
+Ldomain = float(sys.argv[2])
+hf = float(sys.argv[3])
 
-rOld, DistCutoff = sys.argv[3], sys.argv[4]
-rminp, rmaxp, zminp, zmaxp = [Ldomain, 0, -Ldomain/4., Ldomain/4.]
+DistCutoff, BoxSize = 1e-4, 0.1
+
+rmin, rmax, zmin, zmax = [-Ldomain/2., Ldomain/2., -hf*1.001, Ldomain-hf]
 
 name1 = "%4.4d_X0Y0V0.dat" % ci
-name2 = "%4.4d_XmYmVm.dat" % ci
 
 if os.path.exists(name1):
     print("File %s found! New data will be appended to the file" % name1)
-if os.path.exists(name2):
-    print("File %s found! New data will be appended to the file" % name2)
+
 folder = 'TrackingTP' # output folder
 if not os.path.isdir(folder):
     os.makedirs(folder)
 
 for ti in range(nGFS):
-    t = 100*ti
+    t = (5e-4)*ti
     place = "intermediate/snapshot-%5.4f" % t
-    ImageName = "%s/%9.9d.png" %(folder, int(1e3*ti))
+    ImageName = "%s/%9.9d.png" %(folder, int(100000*ti))
     if not os.path.exists(place):
         print("%s File not found!" % place)
     else:
@@ -97,14 +89,12 @@ for ti in range(nGFS):
             if (len(facets1) == 0 or len(facets2) == 0):
                 print("Problem in the available file %s" % place)
             else:
-                tp, zTP, rTP, vTP  = gettingTriplePoint(place)
-                print("t %2.1f zTP %4.3f rTP %4.3f vTP %4.3e" % (tp, zTP, rTP, vTP))
-                rOld = str(rTP)
-                tp, zm, rm, vm  = gettingXmYmVm(place)
-                print("t %2.1f zM %4.3f rM %4.3f vM %4.3e" % (tp, zm, rm, vm))
+                tp, zTP, rTP, vTP  = gettingTriplePoint(place, name1, DistCutoff)
+                print("t %5.4f zTP %4.3f rTP %4.3f vTP %4.3e" % (tp, zTP, rTP, vTP))
+
                 ## Part to plot
                 AxesLabel, TickLabel = [30, 25]
-                fig, ax = plt.subplots()
+                fig, (ax, ax2) = plt.subplots(1,2)
                 fig.set_size_inches(19.20, 10.80)
                 rc('axes', linewidth=2)
                 ## Drawing Facets
@@ -113,18 +103,41 @@ for ti in range(nGFS):
                 line_segments2 = LineCollection(facets2, linewidths=2, colors='#1a9850', linestyle='solid')
                 ax.add_collection(line_segments2)
                 ax.plot([rTP], [zTP], 'bo')
-                ax.plot([rm], [zm], 'ro')
-                ax.plot([0, 0], [zminp, zmaxp],'--', color='grey')
+                ax.plot([-rTP], [zTP], 'bo')
+                ax.plot([0, 0], [zmin, zmax],'--', color='grey')
+                box = plt.Rectangle((rmin, zmin), rmax-rmin, zmax-zmin, fill=False, transform=ax.transData, color='k')
+                ax.add_patch(box)
+                
+                box = plt.Rectangle((rTP-BoxSize/2., zTP-BoxSize/2.), BoxSize, BoxSize, fill=False, transform=ax.transData, color='gray')
+                ax.add_patch(box)
 
                 ax.set_xlabel(r'$\mathcal{R}$', fontsize=AxesLabel)
                 ax.set_ylabel(r'$\mathcal{Z}$', fontsize=AxesLabel)
                 ax.set_aspect('equal')
-                ax.xaxis.set_major_formatter(FormatStrFormatter('$%.1f$'))
-                ax.yaxis.set_major_formatter(FormatStrFormatter('$%.1f$'))
-                ax.tick_params(labelsize=TickLabel)
-                ax.set_xlim(rminp, rmaxp)
-                ax.set_ylim(zminp, zmaxp)
-                ax.set_title('$t = %4.3f$' % t, fontsize=AxesLabel)
+                ax.set_xlim(rmin, rmax)
+                ax.set_ylim(zmin, zmax)
+                ax.set_title('$t = %5.4f$' % t, fontsize=AxesLabel)
+
+                ax.axis('off')
+
+                # ax2 same as ax but zoomed in on the triple point: window size is BoxSize
+                ## Drawing Facets
+                line_segments12 = LineCollection(facets1, linewidths=2, colors='#fc8d59', linestyle='solid')
+                ax2.add_collection(line_segments12)
+                line_segments22 = LineCollection(facets2, linewidths=2, colors='#1a9850', linestyle='solid')
+                ax2.add_collection(line_segments22)
+                ax2.plot([rTP], [zTP], 'bo')
+                ax2.plot([-rTP], [zTP], 'bo')
+                ax2.plot([0, 0], [zmin, zmax],'--', color='grey')
+                box = plt.Rectangle((rTP-BoxSize/2., zTP-BoxSize/2.), BoxSize, BoxSize, fill=False, transform=ax2.transData, color='gray')
+                ax2.add_patch(box)
+
+                ax2.set_xlabel(r'$\mathcal{R}$', fontsize=AxesLabel)
+                ax2.set_ylabel(r'$\mathcal{Z}$', fontsize=AxesLabel)
+                ax2.set_aspect('equal')
+                ax2.set_xlim(rTP-BoxSize/2., rTP+BoxSize/2.)
+                ax2.set_ylim(zTP-BoxSize/2., zTP+BoxSize/2.)
+                ax2.axis('off')
 
                 # plt.show()
                 plt.savefig(ImageName,bbox_inches='tight')
